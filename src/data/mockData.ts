@@ -1,4 +1,4 @@
-import { Vehicle, Strategy, Incident, Disposal } from '@/types';
+import { Vehicle, Strategy, Incident, Disposal, ChargingStation } from '@/types';
 
 function generateTempHistory(baseTemp: number, count: number): { time: string; value: number }[] {
   const history: { time: string; value: number }[] = [];
@@ -304,3 +304,67 @@ export const mockDisposals: Disposal[] = [
 
 export const routes = ['北京 → 天津', '北京 → 石家庄', '北京 → 济南', '北京 → 太原'];
 export const cargoTypes = ['冷冻肉类', '生鲜果蔬', '疫苗药品', '海鲜水产', '乳制品'];
+
+export const mockStations: ChargingStation[] = [
+  {
+    id: 'st001',
+    name: 'G2京沪高速 马驹桥服务区',
+    location: '北京市通州区',
+    distanceKm: 25,
+    detourMinutes: 15,
+    type: 'both',
+    available: true,
+  },
+  {
+    id: 'st002',
+    name: 'G2京沪高速 天津西服务区',
+    location: '天津市西青区',
+    distanceKm: 120,
+    detourMinutes: 35,
+    type: 'charging',
+    available: true,
+  },
+  {
+    id: 'st003',
+    name: 'G4京港澳高速 保定服务区',
+    location: '河北省保定市',
+    distanceKm: 150,
+    detourMinutes: 45,
+    type: 'both',
+    available: true,
+  },
+  {
+    id: 'st004',
+    name: 'G20青银高速 济南服务区',
+    location: '山东省济南市',
+    distanceKm: 380,
+    detourMinutes: 60,
+    type: 'charging',
+    available: false,
+  },
+  {
+    id: 'st005',
+    name: 'G5京昆高速 石家庄服务区',
+    location: '河北省石家庄市',
+    distanceKm: 280,
+    detourMinutes: 50,
+    type: 'both',
+    available: true,
+  },
+];
+
+export function getStationsByRoute(route: string): ChargingStation[] {
+  if (route.includes('天津')) {
+    return [mockStations[0], mockStations[1]];
+  }
+  if (route.includes('石家庄')) {
+    return [mockStations[0], mockStations[4]];
+  }
+  if (route.includes('济南')) {
+    return [mockStations[0], mockStations[3]];
+  }
+  if (route.includes('太原')) {
+    return [mockStations[2], mockStations[4]];
+  }
+  return mockStations.slice(0, 3);
+}

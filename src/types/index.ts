@@ -49,6 +49,16 @@ export interface Incident {
   status: IncidentStatus;
 }
 
+export interface ChargingStation {
+  id: string;
+  name: string;
+  location: string;
+  distanceKm: number;
+  detourMinutes: number;
+  type: 'charging' | 'fuel' | 'both';
+  available: boolean;
+}
+
 export interface Disposal {
   id: string;
   incidentId: string;
@@ -57,6 +67,9 @@ export interface Disposal {
   note: string;
   operator: string;
   createdAt: string;
+  stationId?: string;
+  stationName?: string;
+  detourMinutes?: number;
 }
 
 export interface VehicleFilters {

@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
-import { X, Phone, MapPin, AlertOctagon, FileText } from 'lucide-react';
+import { X, Phone, MapPin, AlertOctagon, FileText, Clock, Navigation, Zap, Fuel } from 'lucide-react';
 import { clsx } from 'clsx';
-import { Incident, DisposalAction } from '@/types';
+import { Incident, DisposalAction, ChargingStation } from '@/types';
 import { Button } from '@/components/UI/Button';
 import { Badge } from '@/components/UI/Badge';
 import { useFleetStore } from '@/store/fleetStore';
@@ -30,11 +30,14 @@ export function IncidentDrawer({ incident, onClose }: IncidentDrawerProps) {
   const updateIncidentStatus = useFleetStore((s) => s.updateIncidentStatus);
   const vehicles = useFleetStore((s) => s.vehicles);
   const disposals = useFleetStore((s) => s.disposals);
+  const getStationsByVehicleId = useFleetStore((s) => s.getStationsByVehicleId);
 
   const [selectedAction, setSelectedAction] = useState<DisposalAction>('call_driver');
+  const [selectedStation, setSelectedStation] = useState<ChargingStation | null>(null);
   const [note, setNote] = useState('');
 
   const vehicle = useMemo(() => vehicles.find((v) => v.id === incident?.vehicleId), [vehicles, incident?.vehicleId]);
+
   const incidentDisposals = useMemo(() =>
     disposals
       .filter((d) => d.incidentId === incident?.id)
@@ -42,20 +45,49 @@ export function IncidentDrawer({ incident, onClose }: IncidentDrawerProps) {
     [disposals, incident?.id]
   );
 
+  const stations = useMemo(() => {
+    if (!incident) return [];
+    return getStationsByVehicleId(incident.vehicleId);
+  }, [incident, getStationsByVehicleId]);
+
+  const canSubmit = useMemo(() => {
+    if (!note.trim()) return false;
+    if (selectedAction === 'reroute_station' && !selectedStation) return false;
+    return true;
+  }, [note, selectedAction, selectedStation]);
+
   if (!incident) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!note.trim()) return;
+    if (!canSubmit) return;
+
     addDisposal({
       incidentId: incident.id,
       vehicleId: incident.vehicleId,
       action: selectedAction,
       note: note.trim(),
+      stationId: selectedStation?.id,
+      stationName: selectedStation?.name,
+      detourMinutes: selectedStation?.detourMinutes,
     });
     updateIncidentStatus(incident.id, 'processing');
     setNote('');
+    setSelectedStation(null);
     onClose();
+  };
+
+  const getStationTypeIcon = (type: ChargingStation['type']) => {
+    if (type === 'both') {
+      return (
+        <div className="flex items-center gap-0.5">
+          <Zap className="h-3 w-3" />
+          <Fuel className="h-3 w-3" />
+        </div>
+      );
+    }
+    if (type === 'charging') return <Zap className="h-3.5 w-3.5" />;
+    return <Fuel className="h-3.5 w-3.5" />;
   };
 
   return (
@@ -114,6 +146,15 @@ export function IncidentDrawer({ incident, onClose }: IncidentDrawerProps) {
                       <Badge variant="info">{disposalActionLabels[d.action]}</Badge>
                       <span className="text-xs text-slate-400">{formatDateTime(d.createdAt)}</span>
                     </div>
+                    {d.stationName && (
+                      <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-600">
+                        <MapPin className="h-3 w-3" />
+                        <span>{d.stationName}</span>
+                        {d.detourMinutes && (
+                          <span className="text-slate-500">· 绕行约{d.detourMinutes}分钟</span>
+                        )}
+                      </div>
+                    )}
                     <p className="mt-2 text-sm text-slate-700">{d.note}</p>
                     <p className="mt-2 text-xs text-slate-500">操作人：{d.operator}</p>
                   </div>
@@ -130,7 +171,10 @@ export function IncidentDrawer({ incident, onClose }: IncidentDrawerProps) {
                   <button
                     key={action}
                     type="button"
-                    onClick={() => setSelectedAction(action)}
+                    onClick={() => {
+                      setSelectedAction(action);
+                      if (action !== 'reroute_station') setSelectedStation(null);
+                    }}
                     className={clsx(
                       'flex items-center gap-2 rounded-lg border p-3 text-left text-sm transition-all',
                       selectedAction === action
@@ -146,6 +190,67 @@ export function IncidentDrawer({ incident, onClose }: IncidentDrawerProps) {
                 ))}
               </div>
             </div>
+
+            {selectedAction === 'reroute_station' && (
+              <div className="rounded-lg border border-sky-200 bg-sky-50/50 p-3 space-y-2">
+                <div className="text-xs font-medium text-sky-700 flex items-center gap-1.5">
+                  <Navigation className="h-3.5 w-3.5" />
+                  选择补能站点
+                </div>
+                <div className="space-y-2">
+                  {stations.map((station) => (
+                    <button
+                      key={station.id}
+                      type="button"
+                      onClick={() => station.available && setSelectedStation(station)}
+                      disabled={!station.available}
+                      className={clsx(
+                        'w-full text-left rounded-lg border p-3 transition-all',
+                        !station.available && 'opacity-50 cursor-not-allowed bg-slate-50 border-slate-200',
+                        station.available && selectedStation?.id === station.id
+                          ? 'border-sky-500 bg-sky-50 ring-1 ring-sky-500'
+                          : station.available
+                            ? 'border-slate-200 bg-white hover:border-sky-300'
+                            : ''
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-slate-900 flex items-center gap-1.5">
+                            <span className={clsx(
+                              selectedStation?.id === station.id ? 'text-sky-700' : 'text-emerald-600'
+                            )}>
+                              {getStationTypeIcon(station.type)}
+                            </span>
+                            <span className="truncate">{station.name}</span>
+                          </div>
+                          <div className="text-xs text-slate-500 mt-1">{station.location}</div>
+                        </div>
+                        {!station.available && (
+                          <Badge variant="danger" className="flex-shrink-0">不可用</Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {station.distanceKm}km
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          绕行约{station.detourMinutes}分钟
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                {selectedAction === 'reroute_station' && !selectedStation && (
+                  <p className="text-xs text-amber-600 flex items-center gap-1">
+                    <AlertOctagon className="h-3 w-3" />
+                    请选择一个补能站点
+                  </p>
+                )}
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -164,7 +269,7 @@ export function IncidentDrawer({ incident, onClose }: IncidentDrawerProps) {
               <Button type="button" variant="ghost" onClick={onClose}>
                 取消
               </Button>
-              <Button type="submit" disabled={!note.trim()}>
+              <Button type="submit" disabled={!canSubmit}>
                 提交处置记录
               </Button>
             </div>

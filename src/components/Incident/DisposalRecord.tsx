@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Disposal } from '@/types';
 import { Badge } from '@/components/UI/Badge';
 import { useFleetStore } from '@/store/fleetStore';
+import { MapPin, Clock } from 'lucide-react';
 import {
   disposalActionLabels,
   incidentTypeLabels,
@@ -68,6 +69,18 @@ export function DisposalRecord({ disposals }: DisposalRecordProps) {
                   <Badge variant="info">{disposalActionLabels[d.action]}</Badge>
                 </td>
                 <td className="px-4 py-3">
+                  {d.stationName && (
+                    <div className="mb-1.5 flex items-center gap-2 text-xs text-emerald-600">
+                      <MapPin className="h-3 w-3" />
+                      <span className="font-medium">{d.stationName}</span>
+                      {d.detourMinutes && (
+                        <span className="text-slate-500 flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          绕行约{d.detourMinutes}分钟
+                        </span>
+                      )}
+                    </div>
+                  )}
                   <p className="text-sm text-slate-700 line-clamp-2 max-w-md">{d.note}</p>
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-700">{d.operator}</td>
